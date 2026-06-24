@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天氣猜謎遊戲 ⛅</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sky: #0ea5e9;
+    --sky-dark: #0369a1;
+    --cloud: #f0f9ff;
+    --sun: #fbbf24;
+    --rain: #60a5fa;
+    --storm: #6366f1;
+    --snow: #e0f2fe;
+    --fog: #94a3b8;
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --text: #0f172a;
+    --muted: #64748b;
+  }
+
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: linear-gradient(160deg, #0ea5e9 0%, #38bdf8 40%, #bae6fd 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .container {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    border-radius: 28px;
+    padding: 36px 32px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(14,165,233,0.25), 0 4px 16px rgba(0,0,0,0.1);
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--sky-dark);
+    letter-spacing: -0.5px;
+  }
+
+  .header p {
+    color: var(--muted);
+    margin-top: 6px;
+    font-size: 0.95rem;
+  }
+
+  .score-bar {
+    display: flex;
+    justify-content: space-between;
+    background: var(--cloud);
+    border-radius: 14px;
+    padding: 12px 20px;
+    margin-bottom: 24px;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .score-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .score-label { font-size: 0.7rem; color: var(--muted); font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; }
+  .score-val { font-size: 1.4rem; color: var(--sky-dark); }
+  .score-val.streak { color: var(--sun); }
+
+  /* Weather scene */
+  .scene {
+    background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+    border-radius: 20px;
+    padding: 28px 20px;
+    text-align: center;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .weather-emoji { font-size: 5rem; line-height: 1; transition: transform 0.3s; }
+  .weather-emoji.shake { animation: shake 0.5s ease; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px) rotate(-5deg); }
+    40% { transform: translateX(8px) rotate(5deg); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+
+  .weather-emoji.pop { animation: pop 0.4s ease; }
+
+  .clues {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  .clue-tag {
+    background: rgba(14,165,233,0.12);
+    color: var(--sky-dark);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .question-text {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-top: 4px;
+  }
+
+  /* Options */
+  .options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .option-btn {
+    padding: 14px 10px;
+    border-radius: 16px;
+    border: 2.5px solid #e0f2fe;
+    background: white;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.18s;
+  }
+
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--sky);
+    background: var(--cloud);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(14,165,233,0.2);
+  }
+
+  .option-btn.correct {
+    border-color: var(--correct);
+    background: #f0fdf4;
+    color: #15803d;
+    transform: scale(1.04);
+  }
+
+  .option-btn.wrong {
+    border-color: var(--wrong);
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  .option-btn:disabled { cursor: default; }
+  .option-icon { font-size: 1.5rem; }
+
+  /* Feedback */
+  .feedback {
+    text-align: center;
+    min-height: 40px;
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    transition: opacity 0.2s;
+  }
+
+  .feedback.correct { color: var(--correct); }
+  .feedback.wrong { color: var(--wrong); }
+  .feedback.info { color: var(--muted); }
+
+  .next-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(135deg, var(--sky) 0%, var(--sky-dark) 100%);
+    color: white;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: all 0.18s;
+    display: none;
+  }
+
+  .next-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(14,165,233,0.35); }
+  .next-btn.visible { display: block; }
+
+  /* Progress */
+  .progress-wrap { margin-top: 20px; }
+  .progress-track {
+    height: 6px;
+    background: #e0f2fe;
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--sky), var(--sky-dark));
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+  .progress-label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-align: right;
+    margin-top: 4px;
+  }
+
+  /* Result screen */
+  .result-screen {
+    display: none;
+    text-align: center;
+    padding: 12px 0;
+  }
+
+  .result-screen.visible { display: block; }
+  .result-screen .big-emoji { font-size: 5rem; }
+  .result-screen h2 { font-size: 1.6rem; font-weight: 900; color: var(--sky-dark); margin: 12px 0 8px; }
+  .result-screen p { color: var(--muted); font-size: 1rem; margin-bottom: 20px; }
+
+  .final-score {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin: 20px 0;
+  }
+
+  .final-score-item {
+    background: var(--cloud);
+    border-radius: 16px;
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .final-score-item .val { font-size: 2rem; font-weight: 900; color: var(--sky-dark); }
+  .final-score-item .lbl { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .restart-btn {
+    padding: 14px 32px;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(135deg, var(--sky) 0%, var(--sky-dark) 100%);
+    color: white;
+    font-family: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+
+  .restart-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(14,165,233,0.35); }
+
+  .game-area { }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>⛅ 天氣猜謎</h1>
+    <p>根據提示，猜出今天是什麼天氣！</p>
+  </div>
+
+  <div class="score-bar">
+    <div class="score-item">
+      <span class="score-label">分數</span>
+      <span class="score-val" id="score">0</span>
+    </div>
+    <div class="score-item">
+      <span class="score-label">連勝</span>
+      <span class="score-val streak" id="streak">🔥 0</span>
+    </div>
+    <div class="score-item">
+      <span class="score-label">關卡</span>
+      <span class="score-val" id="round">1 / 10</span>
+    </div>
+  </div>
+
+  <div class="game-area" id="gameArea">
+    <div class="scene">
+      <div class="weather-emoji" id="weatherEmoji">🌤</div>
+      <div class="question-text" id="questionText">根據下列線索，猜猜今天的天氣</div>
+      <div class="clues" id="clues"></div>
+    </div>
+
+    <div class="options" id="options"></div>
+
+    <div class="feedback" id="feedback"></div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">下一題 →</button>
+
+    <div class="progress-wrap">
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:10%"></div>
+      </div>
+      <div class="progress-label" id="progressLabel">第 1 題，共 10 題</div>
+    </div>
+  </div>
+
+  <div class="result-screen" id="resultScreen">
+    <div class="big-emoji" id="resultEmoji">🏆</div>
+    <h2 id="resultTitle">遊戲結束！</h2>
+    <p id="resultMsg"></p>
+    <div class="final-score">
+      <div class="final-score-item">
+        <span class="val" id="finalScore">0</span>
+        <span class="lbl">總分</span>
+      </div>
+      <div class="final-score-item">
+        <span class="val" id="finalCorrect">0/10</span>
+        <span class="lbl">答對題數</span>
+      </div>
+      <div class="final-score-item">
+        <span class="val" id="finalBest">0</span>
+        <span class="lbl">最高連勝</span>
+      </div>
+    </div>
+    <button class="restart-btn" onclick="startGame()">🔄 再玩一次</button>
+  </div>
+</div>
+
+<script>
+const WEATHER_DATA = [
+  {
+    answer: "晴天",
+    emoji: "☀️",
+    icon: "☀️",
+    clues: ["氣溫：35°C", "濕度：30%", "無雲", "紫外線：極高"],
+    wrongClue: "今天超級熱，要防曬！"
+  },
+  {
+    answer: "下雨",
+    emoji: "🌧️",
+    icon: "🌧️",
+    clues: ["氣溫：20°C", "濕度：90%", "記得帶傘", "地面濕滑"],
+    wrongClue: "出門前先看窗外！"
+  },
+  {
+    answer: "下雪",
+    emoji: "❄️",
+    icon: "❄️",
+    clues: ["氣溫：-3°C", "白色覆蓋地面", "路況危險", "孩子好開心"],
+    wrongClue: "穿上雪衣吧！"
+  },
+  {
+    answer: "打雷",
+    emoji: "⛈️",
+    icon: "⛈️",
+    clues: ["氣溫：22°C", "閃電+雷聲", "強降雨", "不要站樹下"],
+    wrongClue: "待在室內最安全"
+  },
+  {
+    answer: "起霧",
+    emoji: "🌫️",
+    icon: "🌫️",
+    clues: ["能見度：50m", "氣溫：15°C", "道路模糊", "開車要小心"],
+    wrongClue: "世界像消失了一半"
+  },
+  {
+    answer: "多雲",
+    emoji: "⛅",
+    icon: "⛅",
+    clues: ["氣溫：26°C", "半遮陽光", "不太曬", "可能有小雨"],
+    wrongClue: "今天天色灰灰的"
+  },
+  {
+    answer: "颱風",
+    emoji: "🌀",
+    icon: "🌀",
+    clues: ["風速：120 km/h", "大雨", "待在家裡", "停班停課"],
+    wrongClue: "全台灣最緊張的天氣"
+  },
+  {
+    answer: "彩虹",
+    emoji: "🌈",
+    icon: "🌈",
+    clues: ["剛下完雨", "太陽出來了", "七種顏色", "出現在天空"],
+    wrongClue: "雨後的驚喜"
+  },
+  {
+    answer: "大風",
+    emoji: "💨",
+    icon: "💨",
+    clues: ["風速：60 km/h", "物品被吹走", "傘打不開", "頭髮亂飄"],
+    wrongClue: "帽子要抓好！"
+  },
+  {
+    answer: "陰天",
+    emoji: "☁️",
+    icon: "☁️",
+    clues: ["氣溫：22°C", "全是烏雲", "沒有陽光", "心情有點悶"],
+    wrongClue: "光線很暗，要開燈"
+  },
+  {
+    answer: "冰雹",
+    emoji: "🌨️",
+    icon: "🌨️",
+    clues: ["從天上掉冰塊", "氣溫：5°C", "啪啪聲", "車子會受傷"],
+    wrongClue: "史上最奇怪的降水"
+  },
+  {
+    answer: "沙塵暴",
+    emoji: "🏜️",
+    icon: "🏜️",
+    clues: ["天空變黃了", "沙子滿天飛", "口罩必備", "能見度極低"],
+    wrongClue: "世界末日的感覺"
+  }
+];
+
+const ALL_ANSWERS = WEATHER_DATA.map(w => ({ answer: w.answer, icon: w.icon }));
+
+let questions = [];
+let currentQ = 0;
+let score = 0;
+let streak = 0;
+let bestStreak = 0;
+let correct = 0;
+let answered = false;
+const TOTAL = 10;
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function generateOptions(correctAnswer) {
+  const others = ALL_ANSWERS.filter(a => a.answer !== correctAnswer);
+  const picks = shuffle(others).slice(0, 3);
+  const correctObj = ALL_ANSWERS.find(a => a.answer === correctAnswer);
+  return shuffle([correctObj, ...picks]);
+}
+
+function startGame() {
+  questions = shuffle(WEATHER_DATA).slice(0, TOTAL);
+  currentQ = 0; score = 0; streak = 0; bestStreak = 0; correct = 0;
+  document.getElementById('resultScreen').classList.remove('visible');
+  document.getElementById('gameArea').style.display = '';
+  updateScoreBar();
+  renderQuestion();
+}
+
+function renderQuestion() {
+  answered = false;
+  const q = questions[currentQ];
+  const emoji = document.getElementById('weatherEmoji');
+  emoji.textContent = '❓';
+  emoji.className = 'weather-emoji';
+
+  document.getElementById('questionText').textContent = '根據下列線索，猜猜今天的天氣';
+  
+  const cluesEl = document.getElementById('clues');
+  cluesEl.innerHTML = q.clues.map(c => `<span class="clue-tag">${c}</span>`).join('');
+
+  const opts = generateOptions(q.answer);
+  const optionsEl = document.getElementById('options');
+  optionsEl.innerHTML = opts.map(o => `
+    <button class="option-btn" onclick="choose('${o.answer}')">
+      <span class="option-icon">${o.icon}</span>
+      <span>${o.answer}</span>
+    </button>
+  `).join('');
+
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('feedback').className = 'feedback';
+  document.getElementById('nextBtn').classList.remove('visible');
+
+  updateProgress();
+}
+
+function choose(answer) {
+  if (answered) return;
+  answered = true;
+
+  const q = questions[currentQ];
+  const isCorrect = answer === q.answer;
+  const emoji = document.getElementById('weatherEmoji');
+  emoji.textContent = q.emoji;
+
+  const btns = document.querySelectorAll('.option-btn');
+  btns.forEach(btn => {
+    btn.disabled = true;
+    const label = btn.querySelector('span:last-child').textContent;
+    if (label === q.answer) btn.classList.add('correct');
+    else if (label === answer && !isCorrect) btn.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedback');
+  if (isCorrect) {
+    score += 10 + streak * 2;
+    streak++;
+    correct++;
+    if (streak > bestStreak) bestStreak = streak;
+    emoji.className = 'weather-emoji pop';
+    fb.textContent = `✅ 答對了！${streak > 1 ? ` ${streak}連勝！+${10 + (streak-1)*2}分` : ' +10分'}`;
+    fb.className = 'feedback correct';
+  } else {
+    streak = 0;
+    emoji.className = 'weather-emoji shake';
+    fb.textContent = `❌ 答錯了！正確答案是「${q.answer}」— ${q.wrongClue}`;
+    fb.className = 'feedback wrong';
+  }
+
+  updateScoreBar();
+  document.getElementById('nextBtn').classList.add('visible');
+}
+
+function nextQuestion() {
+  currentQ++;
+  if (currentQ >= TOTAL) {
+    showResult();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showResult() {
+  document.getElementById('gameArea').style.display = 'none';
+  const rs = document.getElementById('resultScreen');
+  rs.classList.add('visible');
+
+  const pct = correct / TOTAL;
+  let emoji, title, msg;
+  if (pct === 1)      { emoji = '🏆'; title = '完美！全部答對！'; msg = '你是天氣預報達人！'; }
+  else if (pct >= 0.8){ emoji = '🌟'; title = '太棒了！'; msg = '你對天氣非常敏銳！'; }
+  else if (pct >= 0.6){ emoji = '⛅'; title = '不錯喔！'; msg = '繼續練習，你會更厲害的！'; }
+  else if (pct >= 0.4){ emoji = '🌧️'; title = '還有進步空間'; msg = '多觀察天空，下次會更好！'; }
+  else                { emoji = '😅'; title = '天氣好難猜～'; msg = '沒關係，再試一次！'; }
+
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+  document.getElementById('resultMsg').textContent = msg;
+  document.getElementById('finalScore').textContent = score;
+  document.getElementById('finalCorrect').textContent = `${correct}/${TOTAL}`;
+  document.getElementById('finalBest').textContent = bestStreak;
+}
+
+function updateScoreBar() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('streak').textContent = `🔥 ${streak}`;
+  document.getElementById('round').textContent = `${Math.min(currentQ+1, TOTAL)} / ${TOTAL}`;
+}
+
+function updateProgress() {
+  const pct = ((currentQ) / TOTAL) * 100;
+  document.getElementById('progressFill').style.width = Math.max(pct, 5) + '%';
+  document.getElementById('progressLabel').textContent = `第 ${currentQ+1} 題，共 ${TOTAL} 題`;
+}
+
+startGame();
+</script>
+</body>
+</html>
